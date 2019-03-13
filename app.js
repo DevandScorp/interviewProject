@@ -1,4 +1,3 @@
-/* eslint-disable no-shadow */
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -6,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const fileUpload = require('express-fileupload');
 const PDFDocument = require('pdfkit');
 const mysql = require('mysql');
+const path = require('path');
 const config = require('./databaseConfig');
 
 // Create a connection
@@ -38,19 +38,29 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(cors());
 app.use(fileUpload());
-
+app.set('views', path.join(__dirname, 'views'));
+app.use(express.static('views'));
+app.get('/', (req, res) => {
+  res.sendFile('index.html');
+});
+app.get('/register', (req, res) => {
+  res.redirect('/create.html');
+});
 app.post('/register', (req, res) => {
   const User = {
     firstName: req.body.firstName,
     lastName: req.body.lastName,
     image: req.files.image.data,
   };
-  con.query('INSERT INTO users SET ?', User, (err,
-    result) => {
-    if (err) return res.json({ status: 'Registration proccess error', err });
+  con.query('INSERT INTO users SET ?', User, (err) => {
+    if (err) {
+      console.log(err);
+      return res.json({ status: 'Registration proccess error' });
+    }
+    return res.json({ status: 'Successfully registered' });
   });
-  return res.json({ status: 'Successfully registered' });
 });
+
 app.post('/pdf', (req, res) => {
   con.query(`SELECT * from users where firstName='${req.body.firstName}';`, (err,
     result) => {
@@ -66,20 +76,20 @@ app.post('/pdf', (req, res) => {
     });
     const pdfBufferArray = [];
     doc.fontSize(25)
-      .text(`${req.body.firstName} ${req.body.lastName}`, 100, 100);
+      .text(`${result[0].firstName} ${result[0].lastName}`, 100, 100);
     doc.on('data', data => pdfBufferArray.push(data));
+    doc.end();
     doc.on('end', () => {
-      const result = Buffer.concat(pdfBufferArray);
-      con.query(`UPDATE users set ? WHERE firstName='${req.body.firstName}';`,
+      const resultBuffer = Buffer.concat(pdfBufferArray);
+      con.query(`UPDATE users set ? WHERE firstName='${result[0].firstName}';`,
         {
-          pdf: result,
-        }, (err, result) => {
-          if (err) {
+          pdf: resultBuffer,
+        }, (queryError) => {
+          if (queryError) {
             return res.json({ success: false });
           }
         });
     });
-    doc.end();
     return res.json({ success: true });
   });
 });
