@@ -54,7 +54,6 @@ app.post('/register', (req, res) => {
   };
   con.query('INSERT INTO users SET ?', User, (err) => {
     if (err) {
-      console.log(err);
       return res.json({ status: 'Registration proccess error' });
     }
     return res.json({ status: 'Successfully registered' });
